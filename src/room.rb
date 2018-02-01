@@ -1,3 +1,5 @@
+require 'yaml'
+require 'twitter'
 require_relative 'src/user'
 
 # 配信ルーム
@@ -45,9 +47,43 @@ class Room
     end
   end
 
+  # commentを送信
+  def provide_comment comment
+    # adminとパンピーに送信
+    @add_user.send_comment comment
+    @users.each do |u|
+      u.send_comment comment
+    end
+  end
+
+  # close処理
+  def close_room
+    # streamの入ったThread殺す
+    Thread.kill @thread
+
+    # 終了を通知
+    @users.each do |u|
+      u.send_finish()
+    end
+  end
+
   private
   def establish_stream hash_tag
     # track stream作ってね★
+    client = Twitter::Streaming::Client.new do |config|
+      config.consumer_key = auth["consumer_key"]
+      config.consumer_secret = auth["consumer_secret"]
+      config.access_token = auth["access_token"]
+      config.access_token_secret = auth["access_secret"]
+    end
+
+    @thread = Thread.new do
+      client.filter(track: hash_tag) do |obj|
+        next unless obj.is_a?(Twitter::Tweet)
+
+        provide_comment(obj.text)
+      end
+    end
   end
 
 end
