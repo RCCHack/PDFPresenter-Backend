@@ -1,7 +1,8 @@
-require 'bindata'
+require 'base64'
 require 'sinatra'
 require 'sinatra/reloader'
 require 'sinatra-websocket'
+require 'byebug'
 
 set :bind, "0.0.0.0"
 set :port, 8080
@@ -12,7 +13,7 @@ $rooms = []
 
 
 get '/' do
-  
+  "foobar" 
 end
 
 
@@ -20,6 +21,8 @@ end
 # pdf: data, hash: hoge
 post '/init' do
   # track streamを作成
+  bin_pdf = params[:file][:tempfile].read
+  pdf = Base64.encode64(bin_pdf)
   # room_idと合わせて保持
   room = Room.new pdf, hash_tag
   $rooms << room
@@ -39,7 +42,7 @@ get '/pdf/:room_id' do |room_id|
   if room
     res_hash = {"pdf": room_pdf}
   else
-    res_hash = {"room not found"}
+    res_hash = {"err": "room not found"}
   end
 
   return res_hash.to_json

@@ -1,10 +1,13 @@
 require 'yaml'
 require 'twitter'
+require 'redis'
 require_relative 'src/user'
 
 # 配信ルーム
 class Room
   attr_reader :session_id, :room_id, :page
+
+  @@redis = Redis.new
 
   # pdfを元に 
   # 初期生成データ，stream確立
@@ -13,8 +16,7 @@ class Room
     @admin = nil
     @users = []
 
-    # postされたpdfとハッシュタグ(#抜き)
-    @pdf = pdf
+    # ページ情報
     @page = 1
     @hash_tag = hash_tag
 
@@ -22,7 +24,15 @@ class Room
     @session_id = SecureRandom.hex() 
     @room_id = (0...5).map{ ('A'..'Z').to_a[rand(26)] }.join
 
+    # postされたpdfはredisに(keyがroom_id)
+    @@redis.store_pdf(@@redis, @room_id)
+    # stream立てる
     @stream = establish_stream @hash_tag
+  end
+
+  # redisから
+  def get_pdf
+    @@redis.get(@room_id)
   end
 
   # adminユーザ追加
@@ -36,6 +46,11 @@ class Room
   def add_user user
     users << user
     user.room = self
+  end
+
+  # pdfをredisにStore
+  def store_pdf pdf
+
   end
 
   # page更新を反映・通知
@@ -65,11 +80,14 @@ class Room
     @users.each do |u|
       u.send_finish()
     end
+
+    $rooms.delete self
   end
 
   private
+
+  # track stream生成
   def establish_stream hash_tag
-    # track stream作ってね★
     client = Twitter::Streaming::Client.new do |config|
       config.consumer_key = auth["consumer_key"]
       config.consumer_secret = auth["consumer_secret"]
@@ -85,5 +103,4 @@ class Room
       end
     end
   end
-
 end
