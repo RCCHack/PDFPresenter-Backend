@@ -4,6 +4,8 @@ require 'sinatra/reloader'
 require 'sinatra-websocket'
 require 'byebug'
 
+require_relative 'src/room'
+
 set :bind, "0.0.0.0"
 set :port, 8080
 set :sockets, []
@@ -13,16 +15,18 @@ $rooms = []
 
 
 get '/' do
-  "foobar" 
+  redirect "/index.html"
 end
 
 
 # 初期化データ
 # pdf: data, hash: hoge
 post '/init' do
-  # track streamを作成
-  bin_pdf = params[:file][:tempfile].read
+  # きたデータをいい感じに
+  bin_pdf = params[:pdf][:tempfile].read
   pdf = Base64.encode64(bin_pdf)
+  hash_tag = params[:hash_tag]
+
   # room_idと合わせて保持
   room = Room.new pdf, hash_tag
   $rooms << room
@@ -51,11 +55,15 @@ end
 
 # 色々
 get '/ws' do
+  puts "get /ws"
   if request.websocket?
+    puts "get websock"
+
     request.websocket do |ws|
       # socketをそのまま
       ws.onopen do
         settings.sockets << ws
+        ws.send '{"state": "ok"}'
       end
 
       # 認証してからメッセージング

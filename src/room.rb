@@ -1,13 +1,20 @@
 require 'yaml'
 require 'twitter'
 require 'redis'
-require_relative 'src/user'
+require_relative 'user'
 
 # 配信ルーム
 class Room
   attr_reader :session_id, :room_id, :page
 
   @@redis = Redis.new
+  auth = YAML.load_file("auth.yml")
+  @@client ||= Twitter::Streaming::Client.new do |config|
+    config.consumer_key = auth["consumer_key"]
+    config.consumer_secret = auth["consumer_secret"]
+    config.access_token = auth["access_token"]
+    config.access_token_secret = auth["access_secret"]
+  end
 
   # pdfを元に 
   # 初期生成データ，stream確立
@@ -25,7 +32,7 @@ class Room
     @room_id = (0...5).map{ ('A'..'Z').to_a[rand(26)] }.join
 
     # postされたpdfはredisに(keyがroom_id)
-    @@redis.store_pdf(@@redis, @room_id)
+    @@redis.set(@room_id, pdf)
     # stream立てる
     @stream = establish_stream @hash_tag
   end
@@ -48,11 +55,6 @@ class Room
     user.room = self
   end
 
-  # pdfをredisにStore
-  def store_pdf pdf
-
-  end
-
   # page更新を反映・通知
   def update_page page
     @page = page
@@ -64,8 +66,9 @@ class Room
 
   # commentを送信
   def provide_comment comment
+    return unless @admin
     # adminとパンピーに送信
-    @add_user.send_comment comment
+    @admin.send_comment comment
     @users.each do |u|
       u.send_comment comment
     end
@@ -88,15 +91,9 @@ class Room
 
   # track stream生成
   def establish_stream hash_tag
-    client = Twitter::Streaming::Client.new do |config|
-      config.consumer_key = auth["consumer_key"]
-      config.consumer_secret = auth["consumer_secret"]
-      config.access_token = auth["access_token"]
-      config.access_token_secret = auth["access_secret"]
-    end
 
     @thread = Thread.new do
-      client.filter(track: hash_tag) do |obj|
+      @@client.filter(track: hash_tag) do |obj|
         next unless obj.is_a?(Twitter::Tweet)
 
         provide_comment(obj.text)
