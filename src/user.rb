@@ -5,7 +5,7 @@ class User
   # @socket
   # @admin
   # @room
-  attr_reader :room, :privilege
+  attr_accessor :room, :privilege
   
   # 拡張を考慮
   def initialize socket, privilege=false
@@ -16,11 +16,7 @@ class User
 
   # hashから
   def send_hash req_hash
-    req_json = req_hash.to_json
-
-    sockets.send req_json
-
-    return req_json
+    @socket.send_hash req_hash
   end
 
   # comment送信

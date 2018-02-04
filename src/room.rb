@@ -51,7 +51,7 @@ class Room
 
   # normalユーザ追加
   def add_user user
-    users << user
+    @users << user
     user.room = self
   end
 
@@ -75,6 +75,17 @@ class Room
     end
   end
 
+  # user退出時処理全般
+  def exit_someone user
+    if user.privilege
+      close_room()
+    else
+      @users.delete user
+    end
+  end
+
+  private
+
   # close処理
   def close_room
     # streamの入ったThread殺す
@@ -91,17 +102,23 @@ class Room
     $rooms.delete self
   end
 
-  private
-
   # track stream生成
   def establish_stream hash_tag
+    #h hash_tagのvalidation
+    hash_tag = hash_tag[1..-1] if hash_tag.start_with? "#"
+    query = "##{validate_text(hash_tag)}"
 
     @thread = Thread.new do
-      @@client.filter(track: hash_tag) do |obj|
+      @@client.filter(track: query) do |obj|
         next unless obj.is_a?(Twitter::Tweet)
 
-        provide_comment(obj.text)
+        msg = validate_text(obj.text)
+        provide_comment(msg)
       end
     end
+  end
+
+  def validate_text text
+    text.tr(',.|<>:;/\\\"\'`&%#()', '，．｜＜＞：；／＼”’`＆％＃（）')
   end
 end
