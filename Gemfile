@@ -4,13 +4,13 @@ source "https://rubygems.org"
 
 git_source(:github) {|repo_name| "https://github.com/#{repo_name}" }
 
-gem 'bindata'
-
-gem 'twitter'
+gem 'thin'
 
 gem 'sinatra'
-gem 'sinatra-contrib'
-gem 'sinatra-websocket'
+gem 'sinatra-contrib',  require: 'sinatra/reloader'
+gem 'faye-websocket',   require: 'faye/websocket'
+
 gem 'redis'
+gem 'twitter'
 
 gem 'byebug'

@@ -1,16 +1,18 @@
 require 'base64'
 require 'sinatra'
 require 'sinatra/reloader'
-require 'sinatra-websocket'
+require 'faye/websocket'
 require 'byebug'
 
+require_relative 'src/req_allocator'
 require_relative 'src/room'
+
+Faye::WebSocket.load_adapter('thin')
 
 set :bind, "0.0.0.0"
 set :port, 8080
-set :sockets, []
 
-
+# TODO: GC
 $rooms = []
 
 
@@ -44,7 +46,7 @@ get '/pdf/:room_id' do |room_id|
   room = find_room(room_id)
   
   if room
-    res_hash = {"pdf": room_pdf}
+    res_hash = {"pdf": room.get_pdf}
   else
     res_hash = {"err": "room not found"}
   end
@@ -55,27 +57,29 @@ end
 
 # 色々
 get '/ws' do
-  puts "get /ws"
-  if request.websocket?
-    puts "get websock"
+  if Faye::WebSocket.websocket?(request.env)
+    # faye-websockのobjに
+    ws = Faye::WebSocket.new(request.env)
 
-    request.websocket do |ws|
-      # socketをそのまま
-      ws.onopen do
-        settings.sockets << ws
-        ws.send '{"state": "ok"}'
-      end
-
-      # 認証してからメッセージング
-      ws.onmessage do |msg|
-        ReqAllocator.instance.allocate ws, msg
-      end
-
-      # socket殺す
-      ws.onclose do
-        settings.sockets.delete(ws)
-        # TODO: wsにuser参照つけて，殺す
-      end
+    # socketをそのまま
+    ws.on :open do
+      ws.send '{"state": "ok"}'
     end
+
+    # 認証してからメッセージング
+    ws.on :message do |msg|
+      res = ReqAllocator.instance.allocate ws, msg.data
+      # TODO: err/log
+    end
+
+    # socket殺す
+    ws.on :close do
+      # TODO: wsにuser参照つけて，殺す
+      # TODO: userがadminならroomも殺す
+    end
+
+    ws.rack_response
+  else
+    "websock request required."
   end
 end

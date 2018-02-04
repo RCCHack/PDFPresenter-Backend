@@ -5,20 +5,16 @@ class User
   # @socket
   # @admin
   # @room
-  attr_reader :room, :admin
+  attr_reader :room, :privilege
   
   # 拡張を考慮
-  def initialize socket, admin=false
+  def initialize socket, privilege=false
     @socket = socket
     # うーんこの
-    @admin = admin
+    @privilege = privilege
   end
 
-  # roomを設定
-  def entry_room room
-    @room = room
-  end
-
+  # hashから
   def send_hash req_hash
     req_json = req_hash.to_json
 

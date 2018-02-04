@@ -43,10 +43,10 @@ class Room
   end
 
   # adminユーザ追加
-  def add_admin admin
-    return false unless admin.admin
-    @admin = admin
-    admin.room = self
+  def set_admin user
+    return false unless user.privilege
+    @admin = user
+    user.room = self
   end
 
   # normalユーザ追加
@@ -58,6 +58,7 @@ class Room
   # page更新を反映・通知
   def update_page page
     @page = page
+
     # パンピーに送信
     @users.each do |u|
       u.send_page page
@@ -78,6 +79,9 @@ class Room
   def close_room
     # streamの入ったThread殺す
     Thread.kill @thread
+
+    # redisのレコード削除
+    @redis.del(@room_id)
 
     # 終了を通知
     @users.each do |u|
